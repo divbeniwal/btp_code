@@ -5,12 +5,14 @@ import numpy as np
 import numpy.typing as npt
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, TypeVar
 
 
 # TODO:
-#   - add multilook
 #   - add save and load features
+
+SARImageType = TypeVar('SARImageType', bound='SARImage')
+
 
 @dataclass
 class SARImage:
@@ -88,4 +90,54 @@ class SARImage:
             cal_coeff_list.append(cal_coeff)
             coeff = coeff.astype(np.complex64)
         self.HH, self.HV, self.VH, self.VV = cal_coeff_list
+
+
+    def copy(self: SARImageType) -> SARImageType:
+        return SARImage(self.HH, self.HV, self.VH, self.VV, 
+                calibrated=True, T=self.T, 
+                C=self.T, device=self.device)
+
+
+    def multilook_azimuth(self: SARImageType, nmls: int, method: str = 'mean') -> SARImageType:
+        return SARImage(
+                self._multilook_indi(self.HH, nmls=nmls, method=method),
+                self._multilook_indi(self.HV, nmls=nmls, method=method),
+                self._multilook_indi(self.VH, nmls=nmls, method=method),
+                self._multilook_indi(self.VV, nmls=nmls, method=method),
+                calibrated=self.calibrated,
+                device=self.device
+                )
+
+
+    def _multilook_indi(self, data: npt.NDArray, nmls: int, method: str = "mean") -> npt.NDArray:
+        method_list = ["mean", "median", "mode"]
+        if method not in method_list:
+            msg = f"un-supported multilook method: {method}. Available methods: {method_list}"
+            raise ValueError(msg)
+
+        nmls = int(nmls)
+        if nmls == 1:
+            return data
+        dtype = data
+        shape = np.array(self.HH.shape, dtype=int)
+        azimuth_size = shape[0] // nmls
+
+        if method in ['mean', 'median']:
+            new_shape = np.floor(shape / (nmls, 1)).astype(int) * (nmls, 1)
+            crop_data = data[:new_shape[0], :new_shape[1]]
+
+            temp = crop_data.reshape((new_shape[0] // nmls, nmls, new_shape[1], 1))
+
+            if method == 'mean':
+                coarse_data = np.nanmean(temp, axis=(1, 3))
+            else:
+                coarse_data = np.nanmedian(temp, axis=(1, 3))
+            
+        elif method == 'nearest':
+            coarse_data = self.HH[int(nmls / 2)::nmls, int(1 // 2)::1]
+            if coarse_data.shape != (azimuth_size, shape[1]):
+                coarse_data = coarse_data[:azimuth_size, :shape[1]]
+
+        coarse_data = np.array(coarse_data, dtype=dtype)
+        return coarse_data
 
