@@ -119,7 +119,7 @@ class SARImage:
         if nmls == 1:
             return data
         dtype = data
-        shape = np.array(self.HH.shape, dtype=int)
+        shape = np.array(data.shape, dtype=int)
         azimuth_size = shape[0] // nmls
 
         if method in ['mean', 'median']:
@@ -134,7 +134,7 @@ class SARImage:
                 coarse_data = np.nanmedian(temp, axis=(1, 3))
             
         elif method == 'nearest':
-            coarse_data = self.HH[int(nmls / 2)::nmls, int(1 // 2)::1]
+            coarse_data = data[int(nmls / 2)::nmls, int(1 // 2)::1]
             if coarse_data.shape != (azimuth_size, shape[1]):
                 coarse_data = coarse_data[:azimuth_size, :shape[1]]
 
