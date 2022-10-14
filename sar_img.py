@@ -28,7 +28,7 @@ class SARImage:
 
     def __post_init__(self) -> None:
         if self.T or self.C:
-            self.calibrated = False
+            self.calibrated = True
             if not self.T:
                 self.computeT(device=self.device)
             elif not self.C:
