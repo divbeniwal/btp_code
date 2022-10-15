@@ -1,8 +1,8 @@
 {
   "dir": {
-    "code": "/Users/divyankbeniwal/btp/code/",
     "data": "/Users/divyankbeniwal/btp/data/",
     "chandrayaan_2": "/Users/divyankbeniwal/btp/isro_data/",
-    "matlab": "/Users/divyankbeniwal/btp/matlab/"
+    "matlab": "/Users/divyankbeniwal/btp/matlab/",
+    "numpy_save": "/Users/divyankbeniwal/btp/code/btp_code/numpy_save/"
   }
 }

@@ -1,5 +1,6 @@
 import rasterio as rs
-import numpy as np
+
+import numpy.typing as npt
 
 from pathlib import Path
 from sar_img import SARImage
@@ -19,111 +20,65 @@ LogTheme = Theme({
 console = Console(theme=LogTheme)
 
 
-class Chandrayaan_2:
-    startup: bool
-    dir: str
-    dir_path: Path
+# TODO: make SAR child class of SARImage
+class SAR:
+    path: Path
+    local_path: Path
+    calibrated_data_path: Path
+    sarImage: SARImage
+    date: str
+    
+    def __init__(self, path: Path, local_path: Path) -> None:
+        self.path = path
+        self.local_path = local_path
+        self.date = self.path.name.split("_")[3].split("t")[0]
+        self.calibrated_data_path = self.path / "data" / "calibrated" / self.date
 
-    files_path_list: List[Path]
-    date_map: Dict[str, Path]
-    date_mat_map: Dict[str, Union[None, SARImage]]
+        # TODO: add if found in local
+        coeffs = self.get_scattering_coeff()
+        self.sarImage = SARImage(*coeffs, calibrated=False)
 
-    def __init__(self, dir: str) -> None:
-        self.startup = True
-        self.dir = dir
-        self.dir_path = Path(dir)
-        self.make_date_map()
 
-        # TODO: extract calibration from the config and xml files....
-        self.CALIBRATION = 10000
-
-    def make_date_map(self) -> None:
-        self.files_path_list = [
-            child for child in self.dir_path.iterdir()
-            if child.is_dir()
-        ]
-        self.date_map = {
-            self.get_date_from_path(dir): dir
-            for dir in self.files_path_list
-        }
-        if self.startup:
-            self.startup = False
-            self.date_mat_map = {
-                date: None
-                for date in self.date_map.keys()
-            }
-        else:
-            for date in self.date_map.keys():
-                if date not in self.date_mat_map:
-                    self.date_mat_map[date] = None
-
-    def get_sar_img(self, date: str) -> SARImage | None:
-        array_list = self.get_array_list(date)
-        sar_img = SARImage(*array_list, calibrated=False)
-
-        console.log("calibrating scattering coefficients ... ", style="info")
-        sar_img.calibrate(calibration=self.CALIBRATION)
-        console.log("done", style="success")
-
-        console.log("Computing T Matrix ... ", style="info")
-        tmat = sar_img.computeT()
-        console.print("shape of T matrix: ", type(tmat), tmat.shape)
-        console.log("done", style="success")
-        self.date_mat_map[date] = sar_img
-
-        return sar_img
-
-    def get_array_list(self, date: str) -> List[np.ndarray]:
-        dir_path = self.get_calibrateed_data_files(date)
-        paths = sorted(dir_path.glob("*sli*.tif"))
-        array_list = list()
-        for path in paths:
+    def get_scattering_coeff(self) -> List[npt.NDArray]:
+        coeffs_path = sorted(self.calibrated_data_path.glob("*sli*.tif"))
+        coeffs: List = list()
+        for path in coeffs_path:
             with rs.open(path.__str__()) as src:
-                array_list.append(src.read())
-        return array_list
+                coeffs.append(src.read())
+        return coeffs
 
-    #    def get_HH(self, date: str):
-    #        dir_path = self.get_calibrateed_data_files(date)
-    #        files_paths = sorted(dir_path.glob("*sli*.tif"))
-    #        hh_path = files_paths[0]
-    #        hh = cv.imread(hh_path.as_uri(), cv.IMREAD_UNCHANGED)
-    #        print(hh.size)
-    #
 
-    def update_paths(self) -> None:
-        self.make_date_map()
+class Chandrayaan2:
+    path: Path
+    local_path: Path
+    date_map: Dict[str, SAR]
+
+    def __init__(self, path: str, local_path: str) -> None:
+        self.path = Path(path)
+        self.local_path = Path(local_path)
+        self.dateSARMap()
+
+
+    def dateSARMap(self) -> None:
+        sar_data_paths = [child for child in self.path.iterdir() if child.is_dir()]
+        SARList = [
+                # TODO: change local path
+                SAR(Path(path), self.local_path)
+                for path in sar_data_paths
+                ]
+        self.date_map = {
+                SAR.date : SAR
+                for SAR in SARList
+                }
+
 
     def get_dirs(self) -> Dict[str, Union[Path, List[Path]]]:
-        dir = {
-            'BASE': self.dir_path,
-            'DATA_FILES': self.files_path_list
-        }
-        return dir
+        date_map = {
+                'BASE': self.path,
+                'DATE_MAP': {
+                    date: sarimg_data.path
+                    for date, sarimg_data in self.date_map.items()
+                    }
+                }
+        return date_map
 
-    def get_path_by_date(self, date: str) -> Path:
-        self.update_paths()
-        if date in self.date_map:
-            return self.date_map[date]
-        else:
-            raise KeyError(
-                f"date: {date} is not in date_map, you don't have the files or you need to update Chandrayaan_2 class data.")
-
-    def get_calibrateed_data_files(self, date: str) -> Path:
-        files_path = self.get_path_by_date(date)
-        return files_path / "data" / "calibrated" / date
-
-    def get_date_from_path(self, dir_path: Path) -> str:
-        date: str = dir_path.name.split("_")[3].split("t")[0]
-        return date
-
-    def get_dates(self) -> List[str]:
-        self.update_paths()
-        return list(self.date_map.keys())
-
-    def get_paths_for_all_dates(self) -> List[Path]:
-        self.update_paths()
-        res = [
-            self.get_calibrateed_data_files(date)
-            for date in self.date_map.keys()
-        ]
-        return res
