@@ -16,6 +16,9 @@ DIR = {
             'BASE_PATH': None,
             'CODE': [],
             'DATA': [],
+            },
+        'SAR_IMAGE': {
+            'BASE': BASE_PATH / "numpy_save",
             }
         }
 
