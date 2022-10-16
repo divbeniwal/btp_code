@@ -16,14 +16,14 @@ SARImageType = TypeVar('SARImageType', bound='SARImage')
 
 @dataclass
 class SARImage:
-    HH: npt.NDArray = field(init=True)
-    HV: npt.NDArray = field(init=True)
-    VH: npt.NDArray = field(init=True)
-    VV: npt.NDArray = field(init=True)
-    T: npt.NDArray | None = field(default=None, kw_only=True)
-    C: npt.NDArray | None = field(default=None, kw_only=True)
+    HH:         npt.NDArray = field(init=True)
+    HV:         npt.NDArray = field(init=True)
+    VH:         npt.NDArray = field(init=True)
+    VV:         npt.NDArray = field(init=True)
+    T:          npt.NDArray | None = field(default=None, kw_only=True)
+    C:          npt.NDArray | None = field(default=None, kw_only=True)
     calibrated: bool = field(default=False, kw_only=True, repr=True)
-    device: str = field(default="cpu", kw_only=True, repr=True)
+    device:     str = field(default="cpu", kw_only=True, repr=True)
 
 
     def __post_init__(self) -> None:
