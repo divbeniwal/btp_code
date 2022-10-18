@@ -13,20 +13,22 @@ def get_config(config_file_path: Path) -> dict:
     return res
 
 
-def setup() -> chandrayaan_2.Chandrayaan_2:
+def setup() -> chandrayaan_2.Chandrayaan2:
     config = get_config(DIR['CONFIG'])
 
     # get configs
-    DIR['CODE'] = Path(config['dir']['code'])
-    DIR['DATA'] = Path(config['dir']['data'])
-    DIR['CHANDRAYAAN-2']['BASE'] = Path(config['dir']['chandrayaan_2'])
+    DIR['DATA']['BASE'] = Path(config['dir']['data'])
+    DIR['DATA']['CHANDRAYAAN-2']['BASE'] = Path(config['dir']['chandrayaan_2'])
     DIR['MATLAB']['BASE_PATH'] = Path(config['dir']['matlab'])
 
     # extract chandaryaan-2 data folders
-    ch_data = chandrayaan_2.Chandrayaan_2(config['dir']['chandrayaan_2'])
-    DIR['CHANDRAYAAN-2'] = ch_data.get_dirs()
+    chObj = chandrayaan_2.Chandrayaan2(
+            path=config['dir']['chandrayaan_2'],
+            local_path=DIR['LOCAL']['CHANDRAYAAN-2']
+            )
 
-    return ch_data
+    DIR['DATA']['CHANDRAYAAN-2'] = chObj.get_dirs()
+    return chObj
 
 
 def main() -> None:
