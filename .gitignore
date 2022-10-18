@@ -129,5 +129,8 @@ dmypy.json
 .pyre/
 
 
+# changes and additions
 
 data/
+.DS_STORE
+
