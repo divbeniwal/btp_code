@@ -116,9 +116,9 @@ class Chandrayaan2:
     local_path: Path
     date_map: Dict[str, SAR]
 
-    def __init__(self, path: str, local_path: str) -> None:
-        self.path = Path(path)
-        self.local_path = Path(local_path)
+    def __init__(self, path: Path, local_path: Path) -> None:
+        self.path = path
+        self.local_path = local_path
         self.dateSARMap()
 
 
