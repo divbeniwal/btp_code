@@ -1,62 +1,68 @@
 from pathlib import Path
-from typing import Dict
-from dataclasses import dataclass, field
+from typing import Dict, Any, TypeVar
 
 BASE_PATH = Path(__file__).resolve().parent
 
-@dataclass
-class DirDict:
-    base: Path = field(init=True, repr=True)
+DirType = TypeVar('DirType', bound='Dir')
 
 
-@dataclass
-class Local(DirDict):
-    sar_image: Path = field(init=False, repr=True)
-    chandrayaan2: Path = field(init=False, repr=True)
-
-    def __post_init__(self) -> None:
-        self.sar_image = self.base / "sar_image"
-        self.chandrayaan2 = self.base / "chandrayaan2"
-
-    def set(self, **kwargs) -> None:
-        if "base" in kwargs:
-            self.base = kwargs["base"]
-            self.__post_init__()
-
-        self.sar_image = kwargs.get('sar_image', self.sar_image)
-        self.chandrayaan2 = kwargs.get('chandrayaan2', self.chandrayaan2)
+class Dir:
+    _base : Dict[str, Any] = {
+            'config': BASE_PATH / 'config.json',
+            'local': {
+                'base': BASE_PATH / '.local',
+                'sar_image': BASE_PATH / '.local' / 'sar_image',
+                'chandrayaan2': BASE_PATH / '.local' / 'chandrayaan2'
+                },
+            'data': {
+                'base': BASE_PATH / 'data',
+                'chandrayaan2': BASE_PATH / 'data' / 'chandrayaan2'
+                }
+            }
 
 
-@dataclass
-class Data(DirDict):
-    chandrayaan2: Path = field(init=False, repr=True)
+    def __init__(self, dir_dict: Dict[str, Any], base: bool = True) -> None:
+        if base:
+            self._dirs = self._base.copy()
+            self.__update_dirs__(dir_dict=dir_dict)
+        else:
+            self._dirs = dir_dict
 
-    def __post_init__(self) -> None:
-        self.chandrayaan2 = self.base / "chandrayaan2"
+        for dir_name, dirs in self._dirs.items():
+            if isinstance(dirs, dict):
+                self._dirs[dir_name] = Dir(dirs, base=False)
 
+    def __update_dirs__(self, dir_dict: Dict[str, Any]) -> None:
+        for ele in ('local', 'data'):
+            if ele in dir_dict and 'base' in dir_dict[ele]:
+                ele_dict = dir_dict[ele]
+                ele_base_path = ele_dict['base']
+                for key in self._dirs[ele]:
+                    if key in ele_dict:
+                        self._dirs[ele][key] = ele_dict[key]
+                    else:
+                        self._dirs[ele][key] = ele_base_path / key 
+        self._dirs.update(dir_dict)
 
-    def set(self, **kwargs) -> None:
-        if "base" in kwargs:
-            self.base = kwargs["base"]
-            self.__post_init__()
+    def __getattr__(self: DirType, name: str) -> Path | DirType:
+        if name in self._dirs:
+            return self._dirs[name]
+        else:
+            raise AttributeError(f"Attribute: {name} does not exits.")
 
-        self.chandrayaan2 = kwargs.get('chandrayaan2', self.chandrayaan2)
+    @property
+    def dirs(self) -> Dict[str, Any]:
+        dirs = dict()
+        for dir_name, path in self._dirs.items():
+            if isinstance(path, Dir):
+                dirs[dir_name] = path.dirs
+            else:
+                dirs[dir_name] = path
+        return dirs
 
-
-class Dir(DirDict):
-    base:       Path = BASE_PATH
-    config:     Path = BASE_PATH / "config.json"
-    local:      Local = Local(BASE_PATH / ".local")
-    data:       Data = Data(BASE_PATH / "data")
-
-    def __init__(self, dir: Dict) -> None:
-        self.config = dir.get('config', self.config)
-        if 'local' in dir:
-            self.local = Local(dir["local"]['base'])
-            self.local.set(**dir['local'])
-        if 'data' in dir:
-            self.data = Data(dir['data']['base'])
-            self.data.set(**dir['data'])
-
-
-
+    def __repr__(self) -> str:
+        return str(self.dirs)
+    
+    def __str__(self) -> str:
+        return str(self.dirs)
+        

@@ -8,9 +8,6 @@ from dataclasses import dataclass, field
 from typing import List, TypeVar
 
 
-# TODO:
-#   - add save and load features
-
 SARImageType = TypeVar('SARImageType', bound='SARImage')
 
 
@@ -35,6 +32,20 @@ class SARImage:
                 self.computeC(device=self.device)
         elif self.calibrated:
             warnings.warn("T and C matrix are not computed but 'calibrated' True was provided", category=Warning)
+        else:
+            if len(self.HH.shape) == 3:
+                self.HH = self.__make_complex__(self.HH)
+            if len(self.HV.shape) == 3:
+                self.HV = self.__make_complex__(self.HV)
+            if len(self.VH.shape) == 3:
+                self.VH = self.__make_complex__(self.VH)
+            if len(self.VV.shape) == 3:
+                self.VV = self.__make_complex__(self.VV)
+
+
+    def __make_complex__(self, img: npt.NDArray) -> npt.NDArray:
+        img = img[0, :, :] + 1j * img[1, :, :]
+        return img
 
 
     def computeC(self, device: str | None = None) -> npt.NDArray:
@@ -81,15 +92,19 @@ class SARImage:
         cal_coeff_list: List[npt.NDArray] = list()
         uncal_coeffs = np.array([self.HH, self.HV, self.VH, self.VV])
         for coeff in uncal_coeffs:
-            coeff_real, coeff_im = coeff / calibration
-            coeff_im = 1j * coeff_im 
-            if np.can_cast(coeff_real.dtype, coeff_im.dtype):
-                cal_coeff = np.add(coeff_real, coeff_im, casting="safe")
+            if len(coeff.shape) == 2:
+                cal_coeff = coeff / calibration
             else:
-                raise Exception("np.can_cast for coeff_real and coeff_im is not safe")
+                coeff_real, coeff_im = coeff / calibration
+                coeff_im = 1j * coeff_im 
+                if np.can_cast(coeff_real.dtype, coeff_im.dtype):
+                    cal_coeff = np.add(coeff_real, coeff_im, casting="safe")
+                else:
+                    raise Exception("np.can_cast for coeff_real and coeff_im is not safe")
             cal_coeff_list.append(cal_coeff)
             coeff = coeff.astype(np.complex64)
         self.HH, self.HV, self.VH, self.VV = cal_coeff_list
+        self.calibrated = True
 
 
     def copy(self: SARImageType) -> SARImageType:
@@ -98,19 +113,53 @@ class SARImage:
                 C=self.T, device=self.device)
 
 
+    def crop_new(self: SARImageType, margins: List[int]) -> SARImageType:
+        """
+        Crops the Image and returns a new SARImage object 
+        
+        Parameters
+        ----------
+        margins: Tuple[int]
+            margins define the boundries along which the image will be croped.
+            Example:
+                margins=(r1, r2, c1, c2) is a valid input
+                r1, r2 being rows and c1, c2 being columns
+
+        Returns
+        -------
+        SARImage
+
+        """
+        if len(margins) == 4:
+            r1, r2, c1, c2 = margins
+            coeffs: List[npt.NDArray] = list()
+            for coeff in (self.HH, self.HV, self.VH, self.VV):
+                coeffs.append(coeff[r1:r2 + 1, c1:c2 + 1])
+            if self.T or self.C:
+                raise Warning(f"If T of C matrices were computed for this SARImage they need to computed again from the return object")
+            return SARImage(
+                    *coeffs,
+                    calibrated=self.calibrated,
+                    device=self.device
+                    )
+        else:
+            raise ValueError(f"size of margins should be 4, but got margin: {margins}")
+
+
+
     def multilook_azimuth(self: SARImageType, nmls: int, method: str = 'mean') -> SARImageType:
+        coeffs: List[npt.NDArray] = list()
+        for ele in (self.HH, self.HV, self.VH, self.VV):
+            coeffs.append(self._multilook_indi(ele, nmls=nmls, method=method))
         return SARImage(
-                self._multilook_indi(self.HH, nmls=nmls, method=method),
-                self._multilook_indi(self.HV, nmls=nmls, method=method),
-                self._multilook_indi(self.VH, nmls=nmls, method=method),
-                self._multilook_indi(self.VV, nmls=nmls, method=method),
+                *coeffs,
                 calibrated=self.calibrated,
                 device=self.device
                 )
 
-
+    
     def _multilook_indi(self, data: npt.NDArray, nmls: int, method: str = "mean") -> npt.NDArray:
-        method_list = ["mean", "median", "mode"]
+        method_list = ["mean", "median", "mode", "nearest"]
         if method not in method_list:
             msg = f"un-supported multilook method: {method}. Available methods: {method_list}"
             raise ValueError(msg)

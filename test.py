@@ -3,6 +3,7 @@ from unittest import TestCase
 from pathlib import Path
 
 from dir import Dir
+from main import get_chandrayaan2Obj, get_dirs
 
 
 BASE_PATH = Path(__file__).resolve().parent
@@ -77,6 +78,20 @@ class DirTest(TestCase):
 
         # refresh dir
         self.DirChanged = Dir(self.dir_dict_changed)
+
+
+class TestMain(TestCase):
+
+    def test_get_dirs(self) -> None:
+        get_dirs()
+
+    def test_get_chandrayaan2Obj(self) -> None:
+        dir = get_dirs()
+        if dir.data.chandrayaan2.exists() and dir.data.chandrayaan2.is_dir():
+            get_chandrayaan2Obj()
+        else:
+            with self.assertRaises(ValueError):
+                get_chandrayaan2Obj()
 
 
 

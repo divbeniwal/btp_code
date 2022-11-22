@@ -9,10 +9,10 @@ DIR = {
 #            'chandrayaan2': BASE_PATH / ".local" / "chandrayaan-2",
 #            'chandrayaan2': Path('--- path to the directory / folder ---')
 #            },
-#        'data': {
-#            'base': BASE_PATH / "data",
-#            'chandrayaan-2': BASE_PATH / "data" / "chandrayaan-2-data",
-#            },
+        'data': {
+            'base': BASE_PATH / "data",
+            'chandrayaan2': BASE_PATH / "data" / "isro_data",
+            },
 #         TODO: matlab
         }
 
